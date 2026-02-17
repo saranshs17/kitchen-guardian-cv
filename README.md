@@ -1,0 +1,1 @@
+Computer Vision pipeline for the IoT Project: Kitchen Guardian
