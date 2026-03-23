@@ -17,7 +17,9 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-3. Run the edge detection application:
+3. Download the trained detection models from `Releases` and place them in a `models` directory in the project root.
+
+4. Run the edge detection application:
 ```bash
 python main.py
 ```
