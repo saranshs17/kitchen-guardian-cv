@@ -27,8 +27,8 @@ class SafetyGuardian:
         # 1. Growth/Spatial Logic Override
         # Immediate shutoff if flame growth is critical, regardless of human presence.
         if growth_status == "GROWTH_CRITICAL":
-            self.state = "CRITICAL_SHUTOFF"
-            return "CRITICAL_SHUTOFF"
+            self.state = "CRITICAL_SHUTOFF (RAPID FLAME SPREAD)"
+            return self.state
         
         # Allow a WARNING to be issued even if a person is present to alert them to the growth
         person_override_status = "SAFE"
@@ -46,7 +46,7 @@ class SafetyGuardian:
             time_unattended = current_time - self.last_person_seen_time
             
             if time_unattended > CRITICAL_SECONDS:
-                self.state = "CRITICAL_SHUTOFF"
+                self.state = "CRITICAL_SHUTOFF (LEFT UNATTENDED)"
             elif time_unattended > WARNING_SECONDS:
                 self.state = "WARNING"
             else:

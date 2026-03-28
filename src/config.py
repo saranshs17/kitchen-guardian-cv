@@ -36,3 +36,6 @@ CURRENT_AREA_FRAMES = 30
 PERSON_MODEL_PATH = "yolov8n.pt"
 FLAME_MODEL_PATH = str(MODELS_DIR / "stove_fire_best.pt")
 FIRE_MODEL_PATH = str(MODELS_DIR / "fire_best.pt")
+
+SHUTOFF_ALPHA = 0.04      # Controls EMA smoothing speed
+SHUTOFF_THRESHOLD = 0.85   # Confidence required to hard-trigger shutdown
