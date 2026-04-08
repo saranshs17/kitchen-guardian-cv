@@ -3,3 +3,4 @@ opencv-python
 numpy
 streamlit
 streamlit-webrtc
+streamlit-push-notifications

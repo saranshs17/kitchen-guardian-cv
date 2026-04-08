@@ -1,6 +1,6 @@
 from typing import Literal, List, Optional
 from collections import deque
-from src.config import GROWTH_WARNING_MULTIPLIER, GROWTH_CRITICAL_MULTIPLIER, BASELINE_FRAMES, CURRENT_AREA_FRAMES
+from src.config import GROWTH_WARNING_MULTIPLIER, GROWTH_CRITICAL_MULTIPLIER, BASELINE_FRAMES, CURRENT_AREA_FRAMES, BASELINE_DECAY_RATE
 
 class FlameTracker:
     def __init__(self):
@@ -24,32 +24,45 @@ class FlameTracker:
     def update(self, flame_boxes: List[dict], person_present: bool) -> Literal["SAFE", "GROWTH_WARNING", "GROWTH_CRITICAL"]:
         """
         Track flame growth using a smoothed current area and a contextual baseline.
-        The baseline only updates when a person is present. When they leave, it locks.
+        Implements a sliding window memory to bridge frame dropouts.
         """
         if not flame_boxes:
-            # If no flames are detected, forget the baseline entirely.
-            self.reset()
-            return "SAFE"
-
-        # Calculate total area of all detected flames in the current frame
-        total_current_area = sum(self._calculate_area(item['box']) for item in flame_boxes)
+            total_current_area = 0.0
+        else:
+            total_current_area = sum(self._calculate_area(item['box']) for item in flame_boxes)
 
         # 1. Smoothed Current Area
         self.recent_areas.append(total_current_area)
         smoothed_current_area = sum(self.recent_areas) / len(self.recent_areas)
 
-        # 2. Contextual Baseline
-        if person_present or self.baseline_area <= 0:
-            # Person is present -> Actively cooking
-            # OR this is the very first detection
-            # Slowly update the baseline to reflect intentional changes in flame size
-            self.is_baseline_locked = False
-            self.baseline_history.append(total_current_area)
-            if len(self.baseline_history) > 0:
-                self.baseline_area = sum(self.baseline_history) / len(self.baseline_history)
-        else:
-            # Person left -> Lock the baseline
-            self.is_baseline_locked = True
+        # Dropout Wipe: If the sliding window is completely filled with absolute zeroes
+        if len(self.recent_areas) == self.recent_areas.maxlen and smoothed_current_area == 0.0:
+            self.reset()
+            return "SAFE"
+
+        # 2. Contextual Baseline Protection
+        # Only evaluate the baseline if a real fire is actually seen this frame
+        if total_current_area > 0:
+            if person_present or self.baseline_area <= 0:
+                # Person is present -> Actively cooking OR first detection
+                self.is_baseline_locked = False
+                self.baseline_history.append(total_current_area)
+                if len(self.baseline_history) > 0:
+                    self.baseline_area = sum(self.baseline_history) / len(self.baseline_history)
+            else:
+                # Person left -> Lock the baseline
+                self.is_baseline_locked = True
+                
+                # Adaptive Decay: slowly pull baseline DOWN toward current area.
+                # This prevents a stale high baseline from masking future re-ignition
+                # after the flame naturally dies down (e.g. gas running low).
+                # Only decay downward — if flame is growing, we keep the old baseline
+                # to preserve the growth detection signal.
+                if smoothed_current_area < self.baseline_area:
+                    self.baseline_area = (
+                        self.baseline_area * (1.0 - BASELINE_DECAY_RATE)
+                        + smoothed_current_area * BASELINE_DECAY_RATE
+                    )
             
         # If we haven't established a valid baseline yet, assume safe
         if self.baseline_area <= 0:
